@@ -1,0 +1,53 @@
+---
+title: "Auswertung `r params$bgDay` - `r params$endDay`"
+params:
+  drn: NA
+  unit: NA
+  method: NA
+  bgDay: NA
+  endDay: NA
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+library(plotly)
+library(knitr)
+drn = params$drn
+unit = params$unit
+method = params$method
+bgDay = params$bgDay
+endDay = params$endDay
+```
+
+```{r,fig.align = 'center'}
+p <- plot_ly(
+      drn,
+      type = 'bar',
+      source = "trace"#
+    )
+    for(trace in colnames(drn)[2:ncol(drn)]){
+      p <- p %>% plotly::add_trace(x = drn$Timestamp, y = drn[[trace]], name = trace)
+    }
+    p <- p %>%layout(
+      margin = list(t = 120, b = 50, l = 50),
+      title = sprintf("Drain - %s",input$method),
+      font = list(size=13),
+      xaxis = list(),
+      yaxis = list(title = input$unit)
+    )
+    div(p,align="center")
+```
+
+
+
+```{r}
+# The `params` object is available in the document.
+kable(params$drn)  
+
+```  
+  
+  
+
+
+
