@@ -7,3 +7,4 @@ launch.browser = function(appUrl, browser.path=chrome.portable) {
 }
 
 shiny::runApp('./shiny/', launch.browser=browseURL)
+#Testkommentar
