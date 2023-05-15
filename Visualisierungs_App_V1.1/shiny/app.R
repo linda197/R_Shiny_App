@@ -10,13 +10,16 @@ library(lubridate)
 library(data.table)
 library(rmarkdown)
 
+
 # Erstellung des Userinterfaces
 # Unterteilung in Header, Sidebar und Body
 ui <- dashboardPage(
   dashboardHeader(),
   dashboardSidebar(
     sidebarMenu(
-      menuItem("Auswertung", tabName = "vis", icon = icon("dashboard"))
+      menuItem("Auswertung", tabName = "vis", icon = icon("dashboard")),
+      menuItem("Wasserdaten", tabName = "water", icon = icon("dashboard")),
+      menuItem("Energiedaten", tabName = "energy", icon = icon("dashboard"))
     )
   ),
   
@@ -32,6 +35,28 @@ ui <- dashboardPage(
                   box(fileInput("csvUsData","Bitte .csv der Ultraschallsensoren auswählen",accept = ".csv",multiple = TRUE),width = 12),
                   # Dropdown - Menüs für Auswahl des darzustellendes Zeitraums
                   box(uiOutput("dateSelect"),width = 12),
+                  # Radiobuttons zur Auswahl der Auswertemethode
+                  box(radioGroupButtons(inputId = "method",label = "Auswertungsmethode",choices = c("minütlich","stündlich", "täglich"),justified = TRUE,selected = "stündlich"),width = 12),
+                  # Radiobuttons zur Auswahl der Einheiten
+                  box(radioGroupButtons(inputId = "unit",label = "Einheit",choices = c("Milliliter", "Liter"),justified = TRUE),width = 12),
+                  # Plot für Drainsensordaten
+                  box(plotlyOutput(("volOverTime")),width = 12),
+                  # Plot für Ultraschallsensordaten
+                  box(plotlyOutput(("levelOverTime")),width = 12),
+                  box(tags$div(downloadButton("downloadCsvData", "Download CSV"),style="margin-right:12px;",style="display:inline-block;"),downloadButton("downloadHtmlReport", "Download HTML"),width = 12)
+                  ,width = 12
+                )
+              )
+      ),
+      tabItem(tabName = "water",
+              fluidPage(
+                useShinyalert(),
+                column(
+                  # File-Upload für .csv's der  Ultraschallsensoren
+                  box(fileInput("csvUsData","Bitte .csv der Ultraschallsensoren auswählen",accept = ".csv",multiple = TRUE),width = 12),
+                  # Dropdown - Menüs für Auswahl des darzustellendes Zeitraums
+                  box(uiOutput("dateSelect"),width = 12),
+                  #Datepicker
                   # Radiobuttons zur Auswahl der Auswertemethode
                   box(radioGroupButtons(inputId = "method",label = "Auswertungsmethode",choices = c("minütlich","stündlich", "täglich"),justified = TRUE,selected = "stündlich"),width = 12),
                   # Radiobuttons zur Auswahl der Einheiten
