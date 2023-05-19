@@ -21,7 +21,9 @@ server <- function(input, output) {
     data_folder <- "C:/Users/Lenovo/Documents/Uni/6.Semester/Projekt/Ordnerstruktur/Ultraschalldaten"
     get_ultraschall_data <- function(start_date, end_date) {
       year_folders <- list.dirs(data_folder, recursive = FALSE) # Liste der Jahresordner
+      selected_files <- c()
       ultraschall_data <- list() # Leere Liste zum Speichern der abgerufenen Daten
+      selected_year_folders <- c()
         for (year_folder in year_folders){
           last_four_chars <- substr(year_folder, nchar(year_folder) - 3, nchar(year_folder))
           if (last_four_chars>= (format(start_date, "%Y")) && last_four_chars<= (format(end_date, "%Y"))) {
@@ -40,24 +42,25 @@ server <- function(input, output) {
         }
         for (month_folder in selected_month_folders) {
           file_paths <- list.files(month_folder, pattern = "\\.csv$", full.names = TRUE) # Dateipfade der CSV-Dateien
-          selected_files <- c()
           for (file in file_paths){
             date <- substr(file, nchar(file) - 13, nchar(file)-4)
             if (date>= start_date && date<= end_date) {
               selected_files <- c(selected_files, file)  # Datei zur Liste hinzufügen
             }
           }
-          if (length(selected_files) > 0) {
-            for (file_path in selected_files) {
-              data <- read.csv(file_path, sep = ";", header = TRUE, stringsAsFactors = FALSE)
-              ultraschall_data <- c(ultraschall_data, list(data))
-            }
-          } else {
-            # Keine Dateien gefunden
-            showNotification("Keine Ultraschalldaten gefunden.", type = "warning")
-          }
         }
       }
+      if (length(selected_files) > 0) {
+        for (file_path in selected_files) {
+         data <- read.csv(file_path, sep = ";", header = TRUE, stringsAsFactors = FALSE)
+         ultraschall_data <- c(ultraschall_data, list(data))
+        }
+      } else{
+        # Keine Dateien gefunden
+        print("Keine Ultraschalldaten gefunden.")
+        showNotification("Keine Ultraschalldaten gefunden.", type = "warning")
+      }
+      print(selected_files)
       return(do.call(rbind, ultraschall_data))
     }
     
