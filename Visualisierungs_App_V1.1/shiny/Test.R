@@ -18,11 +18,13 @@ ui <- fluidPage(
 )
 
 server <- function(input, output) {
-    data_folder <- "C:/Users/Lenovo/Documents/Uni/6.Semester/Projekt/Ordnerstruktur/Ultraschalldaten"
-    get_ultraschall_data <- function(start_date, end_date) {
-      year_folders <- list.dirs(data_folder, recursive = FALSE) # Liste der Jahresordner
+    Ultraschall_folder <- "C:/Users/Lenovo/Documents/Uni/6.Semester/Projekt/Ordnerstruktur/Ultraschalldaten"
+    ultraschall_data <- list() # Leere Liste zum Speichern der abgerufenen Daten
+    
+    # Funktion um alle Dateipfade im angegebenen Zeitraum zu holen
+    get_files <- function(start_date, end_date, data_folder) {
       selected_files <- c()
-      ultraschall_data <- list() # Leere Liste zum Speichern der abgerufenen Daten
+      year_folders <- list.dirs(data_folder, recursive = FALSE) # Liste der Jahresordner
       selected_year_folders <- c()
         for (year_folder in year_folders){
           last_four_chars <- substr(year_folder, nchar(year_folder) - 3, nchar(year_folder))
@@ -50,10 +52,16 @@ server <- function(input, output) {
           }
         }
       }
+      return(selected_files)
+    }
+    
+    #Funktion um CSV Dateien der Ultraschalldaten zu holen
+    get_ultraschall_data = function(start_date, end_date) {
+      selected_files <- get_files(start_date, end_date, Ultraschall_folder)
       if (length(selected_files) > 0) {
         for (file_path in selected_files) {
-         data <- read.csv(file_path, sep = ";", header = TRUE, stringsAsFactors = FALSE)
-         ultraschall_data <- c(ultraschall_data, list(data))
+          data <- read.csv(file_path, sep = ";", header = TRUE, stringsAsFactors = FALSE)
+          ultraschall_data <- c(ultraschall_data, list(data))
         }
       } else{
         # Keine Dateien gefunden
@@ -61,8 +69,10 @@ server <- function(input, output) {
         showNotification("Keine Ultraschalldaten gefunden.", type = "warning")
       }
       print(selected_files)
-      return(do.call(rbind, ultraschall_data))
+        return(do.call(rbind, ultraschall_data))
     }
+    
+    
     
     observeEvent(input$submit, {
       start_date <- input$daterange[1]
@@ -73,7 +83,7 @@ server <- function(input, output) {
       # Führe hier weitere Verarbeitungsschritte mit den abgerufenen Daten durch
       output$ultraschall_table <- renderTable(ultraschall_data)
       # Beispiel: Drucke die Anzahl der abgerufenen Datenstrukturen (CSV-Dateien)
-      print(length(ultraschall_data))
+      #print(length(ultraschall_data))
     })
   }
   
