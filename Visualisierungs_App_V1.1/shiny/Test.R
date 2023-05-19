@@ -5,9 +5,6 @@ ui <- fluidPage(
   
   sidebarLayout(
     sidebarPanel(
-      #dateInput("start_date", "Startdatum:", value = Sys.Date()),
-      #dateInput("end_date", "Enddatum:", value = Sys.Date()),
-      
       # Eingabefelder für den Zeitraum
       dateRangeInput("daterange", "Zeitraum auswählen:",
                      start = Sys.Date() - 7, end = Sys.Date()),
@@ -24,25 +21,13 @@ server <- function(input, output) {
     data_folder <- "C:/Users/Lenovo/Documents/Uni/6.Semester/Projekt/Ordnerstruktur/Ultraschalldaten"
     get_ultraschall_data <- function(start_date, end_date) {
       year_folders <- list.dirs(data_folder, recursive = FALSE) # Liste der Jahresordner
-      
-      selected_year_folders <- c()
-      #for (i in seq_along(year_folders)) {
-     #   last_four_chars <- substr(year_folders[i], nchar(year_folders[i]) - 3, nchar(year_folders[i]))
-     #   print(last_four_chars)
-     #   if (last_four_chars>= (format(start_date, "%Y")) && last_four_chars<= (format(end_date, "%Y"))) {
-     #     selected_year_folders[i]<- year_folders[i]
-     #   }
+      ultraschall_data <- list() # Leere Liste zum Speichern der abgerufenen Daten
         for (year_folder in year_folders){
           last_four_chars <- substr(year_folder, nchar(year_folder) - 3, nchar(year_folder))
           if (last_four_chars>= (format(start_date, "%Y")) && last_four_chars<= (format(end_date, "%Y"))) {
             selected_year_folders <- c(selected_year_folders, year_folder)  # Jahr zur Liste hinzufügen
         }
-        
       }
-      
-      ultraschall_data <- list() # Leere Liste zum Speichern der abgerufenen Daten
-     
-      
       for (year_folder in selected_year_folders) {
         #Alle Monatsverzeichnisse, die in den jeweiligen Jahren im Verzeichnis existieren
         month_folders <- list.dirs(year_folder, recursive = FALSE) # Liste der Monatsordner
@@ -53,24 +38,18 @@ server <- function(input, output) {
             selected_month_folders <- c(selected_month_folders, month_folder)  # Monat zur Liste hinzufügen
           }
         }
-        
         for (month_folder in selected_month_folders) {
           file_paths <- list.files(month_folder, pattern = "\\.csv$", full.names = TRUE) # Dateipfade der CSV-Dateien
           selected_files <- c()
           for (file in file_paths){
             date <- substr(file, nchar(file) - 13, nchar(file)-4)
-            print(date)
             if (date>= start_date && date<= end_date) {
               selected_files <- c(selected_files, file)  # Datei zur Liste hinzufügen
             }
           }
-          print("Endergebnis")
-          print(selected_files)
-          
           if (length(selected_files) > 0) {
             for (file_path in selected_files) {
               data <- read.csv(file_path, sep = ";", header = TRUE, stringsAsFactors = FALSE)
-              
               ultraschall_data <- c(ultraschall_data, list(data))
             }
           } else {
