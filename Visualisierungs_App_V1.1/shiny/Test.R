@@ -34,6 +34,10 @@ ui <- dashboardPage(
                   box(
                     tableOutput("ultraschall_table"),
                     width = 12
+                  ),
+                  box(
+                    plotlyOutput("levelOverTime"),
+                    width = 12
                   )
                 )
               )
@@ -50,6 +54,10 @@ ui <- dashboardPage(
                   box(
                     tableOutput("energie_table"),
                     width = 12
+                  ),
+                  box(
+                    plotlyOutput("energiePlot"),
+                    width = 12
                   )
                 )
 
@@ -61,11 +69,12 @@ ui <- dashboardPage(
 
 
 server <- function(input, output) {
+  
   # Die Absoluten Pfade zu den Ordnern auf dem PC
   ultraschall_folder <- "C:/Users/Lenovo/Documents/Uni/6.Semester/Projekt/Ordnerstruktur/Ultraschalldaten"
   energie_folder <- "C:/Users/Lenovo/Documents/Uni/6.Semester/Projekt/Ordnerstruktur/Energiedaten"
   
- 
+ # geteilte Funktionen
   
   # Funktion um alle Dateipfade im angegebenen Zeitraum zu holen
   get_files <- function(start_date, end_date, data_folder) {
@@ -106,11 +115,12 @@ server <- function(input, output) {
     return(selected_files)
   }
   
+#Funktionen für Ultraschalldaten
+  
   # Funktion zum Abrufen der Ultraschalldaten
   get_ultraschall_data = function(start_date, end_date) {
     ultraschall_data <- list() # Leere Liste zum Speichern der abgerufenen Daten
     selected_files <- get_files(start_date, end_date, ultraschall_folder)
-    if (length(selected_files) > 0) {
       for (file_path in selected_files) {
         data <-
           read.csv(
@@ -121,19 +131,62 @@ server <- function(input, output) {
           )
         ultraschall_data <- c(ultraschall_data, list(data))
       }
-    } else{
-      # Keine Dateien gefunden
-      showNotification("Keine Ultraschalldaten gefunden.", type = "warning")
-    }
     print(selected_files)
     return(do.call(rbind, ultraschall_data))
   }
+  
+  # Funktion zum Rendern des Level-Over-Time Plots
+  renderLevelOverTimePlot <- function(data) {
+    p <- plot_ly(
+      data,
+      type = 'scatter',
+      mode = 'lines',
+      source = 'trace'
+    )
+    for(trace in colnames(data)[2:ncol(data)]){
+      p <- p %>% plotly::add_trace(x = data$Timestamp, y = data[[trace]], name = trace)
+    }
+    
+    p <- p %>% layout(
+      title = sprintf("Füllstand"),
+      font = list(size=13),
+      xaxis = list(),
+      yaxis = list(title = "cm"),
+      colorway = c("#0C5BB0FF","#EE0011FF","#15983DFF","#EC579AFF","#FA6B09FF","#149BEDFF","#A1C720FF","#FEC10BFF","#16A08CFF","#9A703EFF"),
+      margin = list(t = 50)
+    )
+    
+    return(p)
+  }
+  
+  # observeEvent-Funktion reagiert auf submit Buttonklick 
+  observeEvent(input$submit_ultraschall, {
+    start_date <- input$daterange_ultraschall[1]
+    end_date <- input$daterange_ultraschall[2]
+    
+    ultraschall_data <- get_ultraschall_data(start_date, end_date)
+    if (length(ultraschall_data) > 0) {
+      # Plot für Ultraschalldaten
+      output$levelOverTime <- renderPlotly({
+        renderLevelOverTimePlot(ultraschall_data)
+      })
+      
+      # Führe hier weitere Verarbeitungsschritte mit den abgerufenen Daten durch
+      #output$ultraschall_table <- renderTable(ultraschall_data)
+     
+    } else{
+      # Keine Dateien gefunden
+      shinyalert("Achtung!", "Es wurden keine Ultraschalldaten gefunden!", type = "warning")
+    }
+  })
+  
+  
+#Funktionen für Energiedaten:
   
   # Funktion zum Abrufen der Energiedaten
   get_energie_data = function(start_date, end_date) {
     energie_data <- list() # Leere Liste zum Speichern der abgerufenen Daten
     selected_files <- get_files(start_date, end_date, energie_folder)
-    if (length(selected_files) > 0) {
       for (file_path in selected_files) {
         data <-
           read.csv(
@@ -144,37 +197,55 @@ server <- function(input, output) {
           )
         energie_data <- c(energie_data, list(data))
       }
-    } else{
-      # Keine Dateien gefunden
-      showNotification("Keine Energiedaten gefunden.", type = "warning")
-    }
     print(selected_files)
     return(do.call(rbind, energie_data))
   }
   
-  observeEvent(input$submit_ultraschall, {
-    start_date <- input$daterange_ultraschall[1]
-    end_date <- input$daterange_ultraschall[2]
+  renderEnergiePlot <- function(data) {
+    p <- plot_ly(
+      data,
+      type = 'scatter',
+      mode = 'lines',
+      source = 'trace'
+    )
     
-    ultraschall_data <- get_ultraschall_data(start_date, end_date)
+    for (trace in colnames(data)[2:ncol(data)]) {
+      p <- p %>% add_trace(x = ~DateTime, y = ~get(trace), name = trace)
+    }
     
-    # Führe hier weitere Verarbeitungsschritte mit den abgerufenen Daten durch
-    output$ultraschall_table <- renderTable(ultraschall_data)
-    # Beispiel: Drucke die Anzahl der abgerufenen Datenstrukturen (CSV-Dateien)
-    #print(length(ultraschall_data))
-  })
+    p <- p %>% layout(
+      title = "Energiedaten",
+      font = list(size = 13),
+      xaxis = list(title = "DateTime"),
+      yaxis = list(title = "Energy"),
+      colorway = c("#0C5BB0FF","#EE0011FF","#15983DFF","#EC579AFF","#FA6B09FF","#149BEDFF","#A1C720FF","#FEC10BFF","#16A08CFF","#9A703EFF"),
+      margin = list(t = 50)
+    )
+    
+    return(p)
+  }
   
+  
+  # observeEvent-Funktion reagiert auf submit Buttonklick 
   observeEvent(input$submit_energie, {
     start_date <- input$daterange_energie[1]
     end_date <- input$daterange_energie[2]
     
     energie_data <- get_energie_data(start_date, end_date)
-    
-    # Führe hier weitere Verarbeitungsschritte mit den abgerufenen Daten durch
-    output$energie_table <- renderTable(energie_data)
-    # Beispiel: Drucke die Anzahl der abgerufenen Datenstrukturen (CSV-Dateien)
+    if (length(energie_data) > 0) {
+      # Plot für Ultraschalldaten
+      output$energiePlot <- renderPlotly({
+        renderEnergiePlot(energie_data)
+      })
+      
+      # Führe hier weitere Verarbeitungsschritte mit den abgerufenen Daten durch
+      #output$ultraschall_table <- renderTable(ultraschall_data)
+      
+    } else{
+      # Keine Dateien gefunden
+      shinyalert("Achtung!", "Es wurden keine Energiedaten gefunden!", type = "warning")
+    }
   })
 }
-
 
 shinyApp(ui = ui, server = server)
