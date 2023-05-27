@@ -9,7 +9,10 @@ library(lubridate)
 library(data.table)
 library(rmarkdown)
 
-#TODO Funktion schreiben, die es nicht erlaubt das Startdatum älter als Enddatum ist
+#TODO: 
+#Plot Ultraschalldaten in Liter?
+# abklären wie Energiedaten am besten plotten
+# Datetime wird im Plot nicht richtig angezeigt?
 
 ui <- dashboardPage(
   dashboardHeader(),
@@ -27,14 +30,14 @@ ui <- dashboardPage(
                 column(
                   width = 12,
                   box(
-                    dateRangeInput("daterange_ultraschall", "Zeitraum auswählen:", start = Sys.Date() - 7, end = Sys.Date()),
+                    dateRangeInput("daterange_ultraschall", "Zeitraum auswählen:", 
+                                   start = Sys.Date() - 7, end = Sys.Date(),
+                                   format = "dd.mm.yyyy",
+                                   language = "de", separator = "bis"),
                     actionButton("submit_ultraschall", "Daten abrufen"),
                     width = 12
                   ),
-                  # box(
-                  #   tableOutput("ultraschall_table"),
-                  #   width = 12
-                  # ),
+                  
                   box(
                     plotlyOutput("levelOverTime"),
                     width = 12
@@ -47,14 +50,13 @@ ui <- dashboardPage(
                 column(
                   width = 12,
                   box(
-                    dateRangeInput("daterange_energie", "Zeitraum auswählen:", start = Sys.Date() - 7, end = Sys.Date()),
+                    dateRangeInput("daterange_energie", "Zeitraum auswählen:", 
+                                   start = Sys.Date() - 7, end = Sys.Date(),
+                                   format = "dd.mm.yyyy",
+                                   language = "de", separator = "bis"),
                     actionButton("submit_energie", "Daten abrufen"),
                     width = 12
                   ),
-                  # box(
-                  #   tableOutput("energie_table"),
-                  #   width = 12
-                  # ),
                   box(
                     plotlyOutput("energiePlot"),
                     width = 12
@@ -169,9 +171,6 @@ server <- function(input, output, session) {
       output$levelOverTime <- renderPlotly({
         renderLevelOverTimePlot(ultraschall_data)
       })
-      
-      # Führe hier weitere Verarbeitungsschritte mit den abgerufenen Daten durch
-      #output$ultraschall_table <- renderTable(ultraschall_data)
      
     } else{
       # Keine Dateien gefunden
@@ -210,36 +209,33 @@ server <- function(input, output, session) {
           )
         energie_data <- c(energie_data, list(data))
       }
-    energie_data$DateTime <- as.POSIXct(energie_data$DateTime, format = "%d.%m.%Y %H:%M:%S")
     return(do.call(rbind, energie_data))
   }
   
   renderEnergiePlot <- function(data) {
-    print(data)
     p <- plot_ly(
       data,
       type = 'scatter',
       mode = 'lines',
       source = 'trace'
     )
-    
-    for (trace in colnames(data)[2:ncol(data)]) {
-      p <- p %>% add_trace(x = ~DateTime, y = ~get(trace), name = trace)
+    print(data$DateTime)
+    for (trace in c("Energy1")) {
+      # /1000 für Kilowattstunden??
+      p <- p %>% add_trace(x = data$DateTime, y = ~get(trace)/1000, name = trace)  # Energy-Werte in Kilowattstunden teilen
     }
     
     p <- p %>% layout(
       title = "Energiedaten",
       font = list(size = 13),
-      xaxis = list(title = "DateTime", type = "date"),  # Hier wird der Achsentyp auf "date" festgelegt
-      yaxis = list(title = "Energy"),
-      colorway = c("#0C5BB0FF","#EE0011FF","#15983DFF","#EC579AFF","#FA6B09FF","#149BEDFF","#A1C720FF","#FEC10BFF","#16A08CFF","#9A703EFF"),
+      xaxis = list(),
+      yaxis = list(title = "kWh"),
+      colorway = c("#0C5BB0FF", "#EE0011FF", "#15983DFF"),  # Farben anpassen oder ergänzen
       margin = list(t = 50)
     )
     
     return(p)
   }
-  
-  
   
   # observeEvent-Funktion reagiert auf submit Buttonklick 
   observeEvent(input$submit_energie, {
@@ -252,9 +248,6 @@ server <- function(input, output, session) {
       output$energiePlot <- renderPlotly({
         renderEnergiePlot(energie_data)
       })
-      
-      # Führe hier weitere Verarbeitungsschritte mit den abgerufenen Daten durch
-      #output$ultraschall_table <- renderTable(ultraschall_data)
       
     } else{
       # Keine Dateien gefunden
