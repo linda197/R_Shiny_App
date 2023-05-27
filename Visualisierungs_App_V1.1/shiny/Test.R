@@ -31,10 +31,10 @@ ui <- dashboardPage(
                     actionButton("submit_ultraschall", "Daten abrufen"),
                     width = 12
                   ),
-                  box(
-                    tableOutput("ultraschall_table"),
-                    width = 12
-                  ),
+                  # box(
+                  #   tableOutput("ultraschall_table"),
+                  #   width = 12
+                  # ),
                   box(
                     plotlyOutput("levelOverTime"),
                     width = 12
@@ -51,10 +51,10 @@ ui <- dashboardPage(
                     actionButton("submit_energie", "Daten abrufen"),
                     width = 12
                   ),
-                  box(
-                    tableOutput("energie_table"),
-                    width = 12
-                  ),
+                  # box(
+                  #   tableOutput("energie_table"),
+                  #   width = 12
+                  # ),
                   box(
                     plotlyOutput("energiePlot"),
                     width = 12
@@ -68,7 +68,7 @@ ui <- dashboardPage(
 )
 
 
-server <- function(input, output) {
+server <- function(input, output, session) {
   
   # Die Absoluten Pfade zu den Ordnern auf dem PC
   ultraschall_folder <- "C:/Users/Lenovo/Documents/Git/Visualisierungs_App_V1.1/Ordnerstruktur/Ultraschalldaten"
@@ -179,6 +179,20 @@ server <- function(input, output) {
     }
   })
   
+  # Observer für Änderungen des Startdatums im Tab "ultraschall"
+  observeEvent(input$daterange_ultraschall[1], {
+    start_date_ultraschall <- input$daterange_ultraschall[1]
+    end_date_ultraschall <- input$daterange_ultraschall[2]
+    
+    # Überprüfen, ob das Startdatum größer als das Enddatum ist
+    if (start_date_ultraschall > end_date_ultraschall) {
+      # Setzen des Enddatums auf das Startdatum
+      updateDateRangeInput(session, "daterange_ultraschall", start = start_date_ultraschall, end = start_date_ultraschall)
+    }
+  })
+  
+  
+  
   
 #Funktionen für Energiedaten:
   
@@ -245,6 +259,19 @@ server <- function(input, output) {
     } else{
       # Keine Dateien gefunden
       shinyalert("Achtung!", "Es wurden keine Energiedaten gefunden!", type = "warning")
+    }
+  })
+  
+  
+  # Observer für Änderungen des Startdatums im Tab "energie"
+  observeEvent(input$daterange_energie[1], {
+    start_date_energie <- input$daterange_energie[1]
+    end_date_energie <- input$daterange_energie[2]
+    
+    # Überprüfen, ob das Startdatum größer als das Enddatum ist
+    if (start_date_energie > end_date_energie) {
+      # Setzen des Enddatums auf das Startdatum
+      updateDateRangeInput(session, "daterange_energie", start = start_date_energie, end = start_date_energie)
     }
   })
 }
