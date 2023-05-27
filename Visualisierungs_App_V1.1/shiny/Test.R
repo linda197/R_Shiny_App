@@ -71,8 +71,8 @@ ui <- dashboardPage(
 server <- function(input, output) {
   
   # Die Absoluten Pfade zu den Ordnern auf dem PC
-  ultraschall_folder <- "C:/Users/Lenovo/Documents/Uni/6.Semester/Projekt/Ordnerstruktur/Ultraschalldaten"
-  energie_folder <- "C:/Users/Lenovo/Documents/Uni/6.Semester/Projekt/Ordnerstruktur/Energiedaten"
+  ultraschall_folder <- "C:/Users/Lenovo/Documents/Git/Visualisierungs_App_V1.1/Ordnerstruktur/Ultraschalldaten"
+  energie_folder <- "C:/Users/Lenovo/Documents/Git/Visualisierungs_App_V1.1/Ordnerstruktur/Energiedaten"
   
  # geteilte Funktionen
   
@@ -131,7 +131,6 @@ server <- function(input, output) {
           )
         ultraschall_data <- c(ultraschall_data, list(data))
       }
-    print(selected_files)
     return(do.call(rbind, ultraschall_data))
   }
   
@@ -197,11 +196,12 @@ server <- function(input, output) {
           )
         energie_data <- c(energie_data, list(data))
       }
-    print(selected_files)
+    energie_data$DateTime <- as.POSIXct(energie_data$DateTime, format = "%d.%m.%Y %H:%M:%S")
     return(do.call(rbind, energie_data))
   }
   
   renderEnergiePlot <- function(data) {
+    print(data)
     p <- plot_ly(
       data,
       type = 'scatter',
@@ -216,7 +216,7 @@ server <- function(input, output) {
     p <- p %>% layout(
       title = "Energiedaten",
       font = list(size = 13),
-      xaxis = list(title = "DateTime"),
+      xaxis = list(title = "DateTime", type = "date"),  # Hier wird der Achsentyp auf "date" festgelegt
       yaxis = list(title = "Energy"),
       colorway = c("#0C5BB0FF","#EE0011FF","#15983DFF","#EC579AFF","#FA6B09FF","#149BEDFF","#A1C720FF","#FEC10BFF","#16A08CFF","#9A703EFF"),
       margin = list(t = 50)
@@ -224,6 +224,7 @@ server <- function(input, output) {
     
     return(p)
   }
+  
   
   
   # observeEvent-Funktion reagiert auf submit Buttonklick 
