@@ -8,17 +8,13 @@ library(plotly)
 library(lubridate)
 library(data.table)
 library(rmarkdown)
+library(writexl)
+library(shinyjs)
 
 #TODO: 
 # Ultraschalldaten in Liter und mm
-# Energiedaten Energy 1-4
-# Export Button
 #Formel für mm US 
 
-
-#Plot Ultraschalldaten in Liter?
-# abklären wie Energiedaten am besten plotten
-# Datetime wird im Plot nicht richtig angezeigt?
 
 ui <- dashboardPage(
   dashboardHeader(),
@@ -30,6 +26,7 @@ ui <- dashboardPage(
   ),
   
   dashboardBody(
+    useShinyjs(),
     tabItems(
       tabItem(tabName = "ultraschall",
               fluidPage(
@@ -41,6 +38,7 @@ ui <- dashboardPage(
                                    format = "dd.mm.yyyy",
                                    language = "de", separator = "bis"),
                     actionButton("submit_ultraschall", "Daten abrufen"),
+                    downloadButton("export_button_ultraschall", "Daten exportieren"),
                     width = 12
                   ),
                   
@@ -61,19 +59,20 @@ ui <- dashboardPage(
                                    format = "dd.mm.yyyy",
                                    language = "de", separator = "bis"),
                     actionButton("submit_energie", "Daten abrufen"),
+                    downloadButton("export_button_energie", "Daten exportieren"),
                     width = 12
                   ),
                   box(
                     plotlyOutput("energiePlot"),
                     width = 12
                   )
-                )
-
+                ),
               )
       )
     )
   )
 )
+
 
 
 server <- function(input, output, session) {
@@ -82,50 +81,11 @@ server <- function(input, output, session) {
   ultraschall_folder <- "C:/Users/Lenovo/Documents/Git/Visualisierungs_App_V1.1/Ordnerstruktur/Ultraschalldaten"
   energie_folder <- "C:/Users/Lenovo/Documents/Git/Visualisierungs_App_V1.1/Ordnerstruktur/Energiedaten"
   
- # geteilte Funktionen
+  # Export Button soll standardmäßig disabled sein
+  shinyjs::disable("export_button_ultraschall")
+  shinyjs::disable("export_button_energie")
   
-  # # Funktion um alle Dateipfade im angegebenen Zeitraum zu holen
-  # get_files <- function(start_date, end_date, data_folder) {
-  #   selected_files <- c()
-  #   year_folders <-list.dirs(data_folder, recursive = FALSE) # Liste der Jahresordner
-  #   selected_year_folders <- c()
-  #   
-  #   # Durchsuche die Jahresordner und wähle diejenigen aus, die im angegebenen Zeitraum liegen
-  #   for (year_folder in year_folders) {
-  #     last_four_chars <-substr(year_folder, nchar(year_folder) - 3, nchar(year_folder))
-  #     if (last_four_chars >= (format(start_date, "%Y")) && last_four_chars <= (format(end_date, "%Y"))) {
-  #       selected_year_folders <-c(selected_year_folders, year_folder)  # Jahr zur Liste hinzufügen
-  #     }
-  #   }
-  #   # Durchsuche die Monatsordner in den ausgewählten Jahresordnern und wähle diejenigen aus, die im angegebenen Zeitraum liegen
-  #   for (year_folder in selected_year_folders) {
-  #     print(year_folder)
-  #     #Alle Monatsverzeichnisse, die in den jeweiligen Jahren im Verzeichnis existieren
-  #     month_folders <- list.dirs(year_folder, recursive = FALSE) # Liste der Monatsordner
-  #     selected_month_folders <- c()
-  #     for (month_folder in month_folders) {
-  #       month <- substr(month_folder, nchar(month_folder) - 1, nchar(month_folder))
-  #       if (month >= (format(start_date, "%m")) && month <= format(end_date, "%m")) {
-  #         selected_month_folders <- c(selected_month_folders, month_folder)  # Monat zur Liste hinzufügen
-  #       }
-  #     }
-  #     
-  #     # Durchsuche die CSV-Dateien in den ausgewählten Monatsordnern und wähle diejenigen aus, die im angegebenen Zeitraum liegen
-  #     for (month_folder in selected_month_folders) {
-  #       print(month_folder)
-  #       file_paths <- list.files(month_folder, pattern = "(?i)\\.csv$", full.names = TRUE)
-  #       for (file in file_paths) {
-  #         date <- substr(file, nchar(file) - 13, nchar(file) - 4)
-  #         if (date >= start_date && date <= end_date) {
-  #           selected_files <- c(selected_files, file)  
-  #         }
-  #       }
-  #     }
-  #   }
-  #   
-  #   #print(selected_files)
-  #   return(selected_files)
-  # }
+ # geteilte Funktionen
   
   # Funktion um alle Dateipfade im angegebenen Zeitraum zu holen
   get_files <- function(start_date, end_date, data_folder) {
@@ -137,7 +97,6 @@ server <- function(input, output, session) {
         selected_files <- c(selected_files, file_path)
       }
     }
-    print(selected_files)
     return(selected_files)
   }
   
@@ -180,36 +139,55 @@ server <- function(input, output, session) {
     return(p)
   }
   
-  # observeEvent-Funktion reagiert auf submit Buttonklick 
+  # observeEvent-Funktion reagiert auf submit Button
   observeEvent(input$submit_ultraschall, {
     start_date <- input$daterange_ultraschall[1]
     end_date <- input$daterange_ultraschall[2]
-    
     ultraschall_data <- get_ultraschall_data(start_date, end_date)
-    print(length(ultraschall_data))
+    
+    # Falls Daten vorhanden sind:
     if (nrow(ultraschall_data) > 0) {
       # Plot für Ultraschalldaten
       output$levelOverTime <- renderPlotly({
         renderLevelOverTimePlot(ultraschall_data)
       })
+      # Enable export button
+      shinyjs::enable("export_button_ultraschall")
       
     } else{
-      # Keine Dateien gefunden
-      shinyalert("Achtung!", "Es wurden keine Ultraschalldaten gefunden!", type = "warning")
+      # Keine Daten gefunden
+      shinyalert("Achtung!", "Es wurden keine Ultraschalldaten im ausgewähltem Zeitraum gefunden!", type = "warning")
+      shinyjs::disable("export_button_ultraschall")
     }
   })
   
-  # Observer für Änderungen des Startdatums im Tab "ultraschall"
+  # Observer für Änderungen des Startdatums
   observeEvent(input$daterange_ultraschall[1], {
     start_date_ultraschall <- input$daterange_ultraschall[1]
     end_date_ultraschall <- input$daterange_ultraschall[2]
     
-    # Überprüfen, ob das Startdatum größer als das Enddatum ist
+    # Überprüfe, ob das Startdatum älter als das Enddatum ist
     if (start_date_ultraschall > end_date_ultraschall) {
       # Setzen des Enddatums auf das Startdatum
       updateDateRangeInput(session, "daterange_ultraschall", start = start_date_ultraschall, end = start_date_ultraschall)
     }
   })
+
+  #Downloadfunktion Excel-Datei
+  output$export_button_ultraschall <- downloadHandler(
+    filename = function() {
+      start_date <- as.character(input$daterange_ultraschall[1])
+      end_date <- as.character(input$daterange_ultraschall[2])
+      name <- sprintf("%s_%s_Report", start_date, end_date)
+      paste(name, sep = '.', 'xlsx')
+    },
+    content = function(file) {
+      start_date <- input$daterange_ultraschall[1]
+      end_date <- input$daterange_ultraschall[2]
+      data <- get_ultraschall_data(start_date, end_date)
+        write_xlsx(data, path = file)
+    }
+  )
   
   
   
@@ -221,14 +199,14 @@ server <- function(input, output, session) {
     energie_data <- data.frame() # Leerer Datenrahmen zum Speichern der abgerufenen Daten
     selected_files <- get_files(start_date, end_date, energie_folder)
     for (file_path in selected_files) {
-      data <- read.csv(file_path, sep = "\t", header = TRUE, stringsAsFactors = FALSE)
+      data <- read.csv(file_path, sep = ";", header = TRUE, stringsAsFactors = FALSE)
       energie_data <- rbind(energie_data, data)
     }
     energie_data$DateTime <- as.POSIXct(energie_data$DateTime, format = "%d.%m.%Y %H:%M")
     return(energie_data)
   }
   
-  # Funktion zum Rendern des Energie-Over-Time Plots
+  # Funktion zum Rendern des Energie Plots
   renderEnergiePlot <- function(data) {
     p <- plot_ly(
       data,
@@ -236,9 +214,12 @@ server <- function(input, output, session) {
       mode = 'lines',
       source = 'trace'
     )
-    for (i in 2:5) {
-      energy_col <- paste0("Energy", i)
-      p <- p %>% plotly::add_trace(x = data$DateTime, y = data[[energy_col]], name = energy_col)
+    energy_columns <- grep("^Energy", colnames(data), value = TRUE)  # Spalten mit Energy-Werten auswählen
+    
+    for (energy_col in energy_columns) {
+      visible <- ifelse(energy_col == "Energy1", TRUE, "legendonly")  # Festlegen, welcher Trace standardmäßig angezeigt wird
+      # Werte in kWh umwandeln => /1000
+      p <- p %>% plotly::add_trace(x = data$DateTime, y = data[[energy_col]]/1000, name = energy_col, visible = visible)
     }
     
     p <- p %>% layout(
@@ -246,34 +227,34 @@ server <- function(input, output, session) {
       font = list(size = 13),
       xaxis = list(),
       yaxis = list(title = "kWh"),
-      colorway = c("#0C5BB0FF","#EE0011FF","#15983DFF","#EC579AFF"),
+      colorway = c("#0C5BB0FF","#EE0011FF","#15983DFF","#EC579AFF","#FA6B09FF","#149BEDFF","#A1C720FF","#FEC10BFF","#16A08CFF","#9A703EFF"),
       margin = list(t = 50)
     )
-    
     return(p)
   }
   
   
-  # observeEvent-Funktion reagiert auf submit Buttonklick 
+  # observeEvent-Funktion reagiert auf submit button
   observeEvent(input$submit_energie, {
     start_date <- input$daterange_energie[1]
     end_date <- input$daterange_energie[2]
     
     energie_data <- get_energie_data(start_date, end_date)
     if (nrow(energie_data) > 0) {
-      # Plot für Ultraschalldaten
+      # Plot für Energiedaten
       output$energiePlot <- renderPlotly({
         renderEnergiePlot(energie_data)
       })
-      
+      shinyjs::enable("export_button_energie")
     } else{
       # Keine Dateien gefunden
-      shinyalert("Achtung!", "Es wurden keine Energiedaten gefunden!", type = "warning")
+      shinyalert("Achtung!", "Es wurden keine Energiedaten im ausgewähltem Zeitraum gefunden!", type = "warning")
+      shinyjs::disable("export_button_energie")
     }
   })
   
   
-  # Observer für Änderungen des Startdatums im Tab "energie"
+  # Observer für Änderungen des Startdatums
   observeEvent(input$daterange_energie[1], {
     start_date_energie <- input$daterange_energie[1]
     end_date_energie <- input$daterange_energie[2]
@@ -284,6 +265,23 @@ server <- function(input, output, session) {
       updateDateRangeInput(session, "daterange_energie", start = start_date_energie, end = start_date_energie)
     }
   })
+
+  #Downloadfunktion Excel-Datei
+  output$export_button_energie <- downloadHandler(
+    filename = function() {
+      start_date <- as.character(input$daterange_energie[1])
+      end_date <- as.character(input$daterange_energie[2])
+      name <- sprintf("%s_%s_Energie_Report", start_date, end_date)
+      paste(name, sep = '.', 'xlsx')
+    },
+    content = function(file) {
+      start_date <- input$daterange_energie[1]
+      end_date <- input$daterange_energie[2]
+      data <- get_energie_data(start_date, end_date)
+      write_xlsx(data, path = file)
+    }
+  )
+  
 }
 
 shinyApp(ui = ui, server = server)
