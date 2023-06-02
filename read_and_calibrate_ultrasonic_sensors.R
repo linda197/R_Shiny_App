@@ -26,14 +26,14 @@ get_distance <- function(sensor_data){
 # Nimm den Nullwert des n-ten Sensors
 # Die tatsächliche Wasserhöhe ist die Differenz zwischen Referenzpegel und dem momentanen Wasserpegel
 # Die Formel ergibt die Wassermenge in Litern. Sie ergibt sich aus der Excel Datei und einer polynomialen Approximation
-get_volume <- function(distance, sensor_n){
+get_water_values <- function(distance, sensor_n){
   calibration_df <- read.csv(paste0(home_dir, "/us_calibration.csv"))
   last_calibration_value <- calibration_df[dim(calibration_df)[1], ][paste0("Nullwert_Sensor_", sensor_n)]
   
   water_height <- last_calibration_value - distance
   water_volume <- water_height*water_height*0.000115+0.53635*water_height
   
-  return(water_volume)
+  return(c(water_volume, water_height))
 }
 
 ###---------------------------------------------------------------------------------------------------------------------------
@@ -43,7 +43,7 @@ get_volume <- function(distance, sensor_n){
 # Erstelle einen individuellen Pfad (Jahr/Monat). Falls er schon existiert, passiert nichts
 # Erstelle die Tagesdatei, falls sie noch nicht existiert.
 # Schreibe die Spaltennamen in die Datei
-# Hole dir die gemessenen Wassermengen der Sensoren und schreibe sie in die Datei
+# Hole dir die gemessenen Wassermengen, Abstände, und Wasserhöhen der Sensoren und schreibe sie in die Datei
 save_sensor_outputs <- function(){
   
   calibration_file <- file.path(home_dir, "us_calibration.csv")
@@ -62,14 +62,14 @@ save_sensor_outputs <- function(){
     
     if(!file.exists(output_file)){
       file.create(output_file)
-      df <- data.frame("Datum","Uhrzeit","Abstand_Sensor_1","Abstand_Sensor_2","Wassermenge_1","Wassermenge_2")
+      df <- data.frame("Datum","Uhrzeit","Abstand_Sensor_1","Abstand_Sensor_2","Wasserhoehe_1","Wasserhoehe_2","Wassermenge_1","Wassermenge_2")
       write.table(df, file = output_file, sep = ",", append = TRUE, quote = FALSE, col.names = FALSE, row.names = FALSE)
     }
     
-    water_volume_1 <- get_volume(distance_sensor_1, 1)
-    water_volume_2 <- get_volume(distance_sensor_2, 2)
+    water_value_1 <- get_water_values(distance_sensor_1, 1)
+    water_value_2 <- get_water_values(distance_sensor_2, 2)
     
-    df <- data.frame (paste(year,month,day,sep="-"), current_time, distance_sensor_1, distance_sensor_2, water_volume_1, water_volume_2)
+    df <- data.frame (paste(year,month,day,sep="-"), current_time, distance_sensor_1, distance_sensor_2, water_value_1[2], water_value_2[2], water_value_1[1], water_value_2[1])
     write.table(df, file = output_file, sep = ",", append = TRUE, quote = FALSE, col.names = FALSE, row.names = FALSE)
   }
 }
@@ -119,7 +119,7 @@ calibrate_sensors <- function(){
 }
 
 
-# calibrate_sensors()
+#calibrate_sensors()
 save_sensor_outputs()
 
 
