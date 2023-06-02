@@ -11,11 +11,6 @@ library(rmarkdown)
 library(writexl)
 library(shinyjs)
 
-#TODO: 
-# Ultraschalldaten in Liter und mm
-#Formel für mm US 
-
-
 ui <- dashboardPage(
   dashboardHeader(),
   dashboardSidebar(
@@ -33,6 +28,9 @@ ui <- dashboardPage(
                 column(
                   width = 12,
                   box(
+                    title = "Ultraschalldaten",
+                    status = "primary",  
+                    solidHeader = TRUE, 
                     dateRangeInput("daterange_ultraschall", "Zeitraum auswählen:", 
                                    start = Sys.Date() - 7, end = Sys.Date(),
                                    format = "dd.mm.yyyy",
@@ -45,6 +43,10 @@ ui <- dashboardPage(
                   box(
                     plotlyOutput("levelOverTime"),
                     width = 12
+                  ),
+                  box(
+                    plotlyOutput("volumeOverTime"),
+                    width = 12
                   )
                 )
               )
@@ -54,6 +56,9 @@ ui <- dashboardPage(
                 column(
                   width = 12,
                   box(
+                    title = "Energiedaten",
+                    status = "primary",  
+                    solidHeader = TRUE, 
                     dateRangeInput("daterange_energie", "Zeitraum auswählen:", 
                                    start = Sys.Date() - 7, end = Sys.Date(),
                                    format = "dd.mm.yyyy",
@@ -81,7 +86,7 @@ server <- function(input, output, session) {
   ultraschall_folder <- "C:/Users/Lenovo/Documents/Git/Visualisierungs_App_V1.1/Ordnerstruktur/Ultraschalldaten"
   energie_folder <- "C:/Users/Lenovo/Documents/Git/Visualisierungs_App_V1.1/Ordnerstruktur/Energiedaten"
   
-  # Export Button soll standardmäßig disabled sein
+  # Export Button soll bei Initialisierung ausgegraut sein
   shinyjs::disable("export_button_ultraschall")
   shinyjs::disable("export_button_energie")
   
@@ -108,10 +113,9 @@ server <- function(input, output, session) {
     ultraschall_data <- data.frame() # Leerer Datenrahmen zum Speichern der abgerufenen Daten
     selected_files <- get_files(start_date, end_date, ultraschall_folder)
     for (file_path in selected_files) {
-      data <- read.csv(file_path, sep = ";", header = TRUE, stringsAsFactors = FALSE)
+      data <- read.csv(file_path, sep = ",", header = TRUE, stringsAsFactors = FALSE)
       ultraschall_data <- rbind(ultraschall_data, data)
     }
-    ultraschall_data$Timestamp <- as.POSIXct(ultraschall_data$Timestamp, format = "%d.%m.%Y %H:%M")
     return(ultraschall_data)
   }
   
@@ -123,12 +127,11 @@ server <- function(input, output, session) {
       mode = 'lines',
       source = 'trace'
     )
-    for(trace in colnames(data)[2:ncol(data)]){
-      p <- p %>% plotly::add_trace(x = data$Timestamp, y = data[[trace]], name = trace)
-    }
+    p <- p %>% plotly::add_trace(x = data$DateTime, y = data$Wasserhoehe_1, name = "Sensor 1")
+    p <- p %>% plotly::add_trace(x = data$DateTime, y = data$Wasserhoehe_2, name = "Sensor 2")
     
     p <- p %>% layout(
-      title = sprintf("Füllstand"),
+      title = "Füllstand",
       font = list(size=13),
       xaxis = list(),
       yaxis = list(title = "mm"),
@@ -139,6 +142,31 @@ server <- function(input, output, session) {
     return(p)
   }
   
+  
+  # Funktion zum Rendern des Volume-Over-Time Plots
+  renderVolumeOverTimePlot <- function(data) {
+    p <- plot_ly(
+      data,
+      type = 'scatter',
+      mode = 'lines',
+      source = 'trace'
+    )
+    p <- p %>% plotly::add_trace(x = data$DateTime, y = data$Wassermenge_1, name = "Sensor 1")
+    p <- p %>% plotly::add_trace(x = data$DateTime, y = data$Wassermenge_2, name = "Sensor 2")
+    
+    p <- p %>% layout(
+      title = "Wasservolumen",
+      font = list(size=13),
+      xaxis = list(),
+      yaxis = list(title = "Liter"),
+      colorway = c("#0C5BB0FF","#EE0011FF","#15983DFF","#EC579AFF","#FA6B09FF","#149BEDFF","#A1C720FF","#FEC10BFF","#16A08CFF","#9A703EFF"),
+      margin = list(t = 50)
+    )
+    
+    return(p)
+  }
+  
+  
   # observeEvent-Funktion reagiert auf submit Button
   observeEvent(input$submit_ultraschall, {
     start_date <- input$daterange_ultraschall[1]
@@ -148,9 +176,14 @@ server <- function(input, output, session) {
     # Falls Daten vorhanden sind:
     if (nrow(ultraschall_data) > 0) {
       # Plot für Ultraschalldaten
-      output$levelOverTime <- renderPlotly({
-        renderLevelOverTimePlot(ultraschall_data)
+       ultraschall_data$DateTime <- as.POSIXct(paste(ultraschall_data$Datum, ultraschall_data$Uhrzeit), format = "%Y-%m-%d %H:%M")
+       ultraschall_data <- ultraschall_data[, c("DateTime", "Abstand_Sensor_1", "Abstand_Sensor_2", "Wasserhoehe_1", "Wasserhoehe_2", "Wassermenge_1", "Wassermenge_2")]
+       output$levelOverTime <- renderPlotly({
+         renderLevelOverTimePlot(ultraschall_data)
       })
+       output$volumeOverTime <- renderPlotly({
+         renderVolumeOverTimePlot(ultraschall_data)
+       })
       # Enable export button
       shinyjs::enable("export_button_ultraschall")
       
