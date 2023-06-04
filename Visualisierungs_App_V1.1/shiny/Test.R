@@ -235,7 +235,6 @@ server <- function(input, output, session) {
       data <- read.csv(file_path, sep = ";", header = TRUE, stringsAsFactors = FALSE)
       energie_data <- rbind(energie_data, data)
     }
-    energie_data$DateTime <- as.POSIXct(energie_data$DateTime, format = "%d.%m.%Y %H:%M")
     return(energie_data)
   }
   
@@ -274,6 +273,7 @@ server <- function(input, output, session) {
     
     energie_data <- get_energie_data(start_date, end_date)
     if (nrow(energie_data) > 0) {
+      energie_data$DateTime <- as.POSIXct(energie_data$DateTime, format = "%d.%m.%Y %H:%M")
       # Plot für Energiedaten
       output$energiePlot <- renderPlotly({
         renderEnergiePlot(energie_data)
