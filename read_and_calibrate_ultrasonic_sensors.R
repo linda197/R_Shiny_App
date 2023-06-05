@@ -27,7 +27,7 @@ get_distance <- function(sensor_data){
 # Die tatsächliche Wasserhöhe ist die Differenz zwischen Referenzpegel und dem momentanen Wasserpegel
 # Die Formel ergibt die Wassermenge in Litern. Sie ergibt sich aus der Excel Datei und einer polynomialen Approximation
 get_water_values <- function(distance, sensor_n){
-  calibration_df <- read.csv(paste0(home_dir, "/us_calibration.csv"))
+  calibration_df <- read.csv(paste0(home_dir, "/offset.csv"))
   last_calibration_value <- calibration_df[dim(calibration_df)[1], ][paste0("Nullwert_Sensor_", sensor_n)]
   
   water_height <- last_calibration_value - distance
@@ -46,7 +46,7 @@ get_water_values <- function(distance, sensor_n){
 # Hole dir die gemessenen Wassermengen, Abstände, und Wasserhöhen der Sensoren und schreibe sie in die Datei
 save_sensor_outputs <- function(){
   
-  calibration_file <- file.path(home_dir, "us_calibration.csv")
+  calibration_file <- file.path(home_dir, "offset.csv")
   
   if(!file.exists(calibration_file)){
     warnings("Kalibrierung der Sensoren wurde noch nicht durchegführt")
@@ -56,7 +56,7 @@ save_sensor_outputs <- function(){
     query_sensors()
     
     output_path <- file.path(home_dir, year, month)
-    output_file <- file.path(output_path, paste0("us_", year, month, day, ".csv"))
+    output_file <- file.path(output_path, paste0(year, "-", month, "-", day, ".csv"))
     
     dir.create(output_path, showWarnings = FALSE, recursive = TRUE)
     
@@ -106,7 +106,7 @@ calibrate_sensors <- function(){
   update_time_and_date()
   query_sensors()
   
-  calibration_file <- file.path(home_dir, "us_calibration.csv")
+  calibration_file <- file.path(home_dir, "offset.csv")
   
   if(!file.exists(calibration_file)){
     file.create(calibration_file)
