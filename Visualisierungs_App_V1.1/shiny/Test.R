@@ -11,19 +11,20 @@ library(rmarkdown)
 library(writexl)
 library(shinyjs)
 
+
 ui <- dashboardPage(
   dashboardHeader(),
   dashboardSidebar(
     sidebarMenu(
-      menuItem("Ultraschalldaten", tabName = "ultraschall", icon = icon("dashboard")),
-      menuItem("Energiedaten", tabName = "energie", icon = icon("dashboard"))
+      menuItem("Ultraschalldaten", tabName = "ultrasound", icon = icon("dashboard")),
+      menuItem("Energiedaten", tabName = "energy", icon = icon("dashboard"))
     )
   ),
   
   dashboardBody(
     useShinyjs(),
     tabItems(
-      tabItem(tabName = "ultraschall",
+      tabItem(tabName = "ultrasound",
               fluidPage(
                 column(
                   width = 12,
@@ -31,27 +32,32 @@ ui <- dashboardPage(
                     title = "Ultraschalldaten",
                     status = "primary",  
                     solidHeader = TRUE, 
-                    dateRangeInput("daterange_ultraschall", "Zeitraum auswählen:", 
+                    dateRangeInput("daterange_ultrasound", "Zeitraum auswählen:", 
                                    start = Sys.Date() - 7, end = Sys.Date(),
                                    format = "dd.mm.yyyy",
                                    language = "de", separator = "bis"),
-                    actionButton("submit_ultraschall", "Daten abrufen"),
-                    downloadButton("export_button_ultraschall", "Daten exportieren"),
-                    width = 12
-                  ),
-                  
-                  box(
-                    plotlyOutput("levelOverTime"),
+                    actionButton("submit_ultrasound", "Daten abrufen"),
+                    downloadButton("export_button_ultrasound", "Daten exportieren"),
                     width = 12
                   ),
                   box(
-                    plotlyOutput("volumeOverTime"),
+                    title = "Kalibrierung",
+                    status = "primary",  
+                    actionButton("run_calibration_button", "Kalibrierung ausführen"),
+                    width = 12
+                  ),
+                  box(
+                    plotlyOutput("level_over_time"),
+                    width = 12
+                  ),
+                  box(
+                    plotlyOutput("volume_over_time"),
                     width = 12
                   )
                 )
               )
       ),
-      tabItem(tabName = "energie",
+      tabItem(tabName = "energy",
               fluidPage(
                 column(
                   width = 12,
@@ -59,16 +65,16 @@ ui <- dashboardPage(
                     title = "Energiedaten",
                     status = "primary",  
                     solidHeader = TRUE, 
-                    dateRangeInput("daterange_energie", "Zeitraum auswählen:", 
+                    dateRangeInput("daterange_energy", "Zeitraum auswählen:", 
                                    start = Sys.Date() - 7, end = Sys.Date(),
                                    format = "dd.mm.yyyy",
                                    language = "de", separator = "bis"),
-                    actionButton("submit_energie", "Daten abrufen"),
-                    downloadButton("export_button_energie", "Daten exportieren"),
+                    actionButton("submit_energy", "Daten abrufen"),
+                    downloadButton("export_button_energy", "Daten exportieren"),
                     width = 12
                   ),
                   box(
-                    plotlyOutput("energiePlot"),
+                    plotlyOutput("energy_over_time"),
                     width = 12
                   )
                 ),
@@ -83,14 +89,14 @@ ui <- dashboardPage(
 server <- function(input, output, session) {
   
   # Die Absoluten Pfade zu den Ordnern auf dem PC
-  ultraschall_folder <- "C:/Users/Lenovo/Documents/Git/Visualisierungs_App_V1.1/Ordnerstruktur/Ultraschalldaten"
-  energie_folder <- "C:/Users/Lenovo/Documents/Git/Visualisierungs_App_V1.1/Ordnerstruktur/Energiedaten"
+  ultrasound_folder <- "C:/Users/Lenovo/Documents/Git/Visualisierungs_App_V1.1/Ordnerstruktur/Ultraschalldaten"
+  energy_folder <- "C:/Users/Lenovo/Documents/Git/Visualisierungs_App_V1.1/Ordnerstruktur/Energiedaten"
   
   # Export Button soll bei Initialisierung ausgegraut sein
-  shinyjs::disable("export_button_ultraschall")
-  shinyjs::disable("export_button_energie")
+  shinyjs::disable("export_button_ultrasound")
+  shinyjs::disable("export_button_energy")
   
- # geteilte Funktionen
+  
   
   # Funktion um alle Dateipfade im angegebenen Zeitraum zu holen
   get_files <- function(start_date, end_date, data_folder) {
@@ -105,22 +111,22 @@ server <- function(input, output, session) {
     return(selected_files)
   }
   
-  
+###--------------------------------------------------------------------------------------------------------------------------- 
 #Funktionen für Ultraschalldaten
   
   # Funktion zum Abrufen der Ultraschalldaten
-  get_ultraschall_data <- function(start_date, end_date) {
-    ultraschall_data <- data.frame() # Leerer Datenrahmen zum Speichern der abgerufenen Daten
-    selected_files <- get_files(start_date, end_date, ultraschall_folder)
+  get_ultrasound_data <- function(start_date, end_date) {
+    ultrasound_data <- data.frame() # Leerer Datenrahmen zum Speichern der abgerufenen Daten
+    selected_files <- get_files(start_date, end_date, ultrasound_folder)
     for (file_path in selected_files) {
       data <- read.csv(file_path, sep = ",", header = TRUE, stringsAsFactors = FALSE)
-      ultraschall_data <- rbind(ultraschall_data, data)
+      ultrasound_data <- rbind(ultrasound_data, data)
     }
-    return(ultraschall_data)
+    return(ultrasound_data)
   }
   
   # Funktion zum Rendern des Level-Over-Time Plots
-  renderLevelOverTimePlot <- function(data) {
+  render_level_over_time_plot <- function(data) {
     p <- plot_ly(
       data,
       type = 'scatter',
@@ -144,7 +150,7 @@ server <- function(input, output, session) {
   
   
   # Funktion zum Rendern des Volume-Over-Time Plots
-  renderVolumeOverTimePlot <- function(data) {
+  render_volume_over_time_plot <- function(data) {
     p <- plot_ly(
       data,
       type = 'scatter',
@@ -168,78 +174,88 @@ server <- function(input, output, session) {
   
   
   # observeEvent-Funktion reagiert auf submit Button
-  observeEvent(input$submit_ultraschall, {
-    start_date <- input$daterange_ultraschall[1]
-    end_date <- input$daterange_ultraschall[2]
-    ultraschall_data <- get_ultraschall_data(start_date, end_date)
+  observeEvent(input$submit_ultrasound, {
+    start_date <- input$daterange_ultrasound[1]
+    end_date <- input$daterange_ultrasound[2]
+    ultrasound_data <- get_ultrasound_data(start_date, end_date)
     
     # Falls Daten vorhanden sind:
-    if (nrow(ultraschall_data) > 0) {
+    if (nrow(ultrasound_data) > 0) {
       # Plot für Ultraschalldaten
-       ultraschall_data$DateTime <- as.POSIXct(paste(ultraschall_data$Datum, ultraschall_data$Uhrzeit), format = "%Y-%m-%d %H:%M")
-       ultraschall_data <- ultraschall_data[, c("DateTime", "Abstand_Sensor_1", "Abstand_Sensor_2", "Wasserhoehe_1", "Wasserhoehe_2", "Wassermenge_1", "Wassermenge_2")]
-       output$levelOverTime <- renderPlotly({
-         renderLevelOverTimePlot(ultraschall_data)
+       ultrasound_data$DateTime <- as.POSIXct(paste(ultrasound_data$Datum, ultrasound_data$Uhrzeit), format = "%Y-%m-%d %H:%M")
+       ultrasound_data <- ultrasound_data[, c("DateTime", "Abstand_Sensor_1", "Abstand_Sensor_2", "Wasserhoehe_1", "Wasserhoehe_2", "Wassermenge_1", "Wassermenge_2")]
+       output$level_over_time <- renderPlotly({
+         render_level_over_time_plot(ultrasound_data)
       })
-       output$volumeOverTime <- renderPlotly({
-         renderVolumeOverTimePlot(ultraschall_data)
+       output$volume_over_time <- renderPlotly({
+         render_volume_over_time_plot(ultrasound_data)
        })
       # Enable export button
-      shinyjs::enable("export_button_ultraschall")
+      shinyjs::enable("export_button_ultrasound")
       
     } else{
       # Keine Daten gefunden
       shinyalert("Achtung!", "Es wurden keine Ultraschalldaten im ausgewähltem Zeitraum gefunden!", type = "warning")
-      shinyjs::disable("export_button_ultraschall")
+      shinyjs::disable("export_button_ultrasound")
     }
   })
   
   # Observer für Änderungen des Startdatums
-  observeEvent(input$daterange_ultraschall[1], {
-    start_date_ultraschall <- input$daterange_ultraschall[1]
-    end_date_ultraschall <- input$daterange_ultraschall[2]
+  observeEvent(input$daterange_ultrasound[1], {
+    start_date_ultrasound <- input$daterange_ultrasound[1]
+    end_date_ultrasound <- input$daterange_ultrasound[2]
     
     # Überprüfe, ob das Startdatum älter als das Enddatum ist
-    if (start_date_ultraschall > end_date_ultraschall) {
+    if (start_date_ultrasound > end_date_ultrasound) {
       # Setzen des Enddatums auf das Startdatum
-      updateDateRangeInput(session, "daterange_ultraschall", start = start_date_ultraschall, end = start_date_ultraschall)
+      updateDateRangeInput(session, "daterange_ultrasound", start = start_date_ultrasound, end = start_date_ultrasound)
     }
   })
 
-  #Downloadfunktion Excel-Datei
-  output$export_button_ultraschall <- downloadHandler(
+  #Download als Excel-Datei
+  output$export_button_ultrasound <- downloadHandler(
     filename = function() {
-      start_date <- as.character(input$daterange_ultraschall[1])
-      end_date <- as.character(input$daterange_ultraschall[2])
-      name <- sprintf("%s_%s_Report", start_date, end_date)
+      start_date <- as.character(input$daterange_ultrasound[1])
+      end_date <- as.character(input$daterange_ultrasound[2])
+      name <- sprintf("%s_%s_Ultraschall_Report", start_date, end_date)
       paste(name, sep = '.', 'xlsx')
     },
     content = function(file) {
-      start_date <- input$daterange_ultraschall[1]
-      end_date <- input$daterange_ultraschall[2]
-      data <- get_ultraschall_data(start_date, end_date)
+      start_date <- input$daterange_ultrasound[1]
+      end_date <- input$daterange_ultrasound[2]
+      data <- get_ultrasound_data(start_date, end_date)
         write_xlsx(data, path = file)
     }
   )
   
+  # Kalibrierung der Ultraschalldaten
+  observeEvent(input$run_calibration_button, {
+    tryCatch({
+      source("C:/Users/Lenovo/Documents/Git/us_calibrate.R")
+      showNotification("Die Kalibration wurde erfolgreich ausgeführt", type = "message")
+    }, error = function(e) {
+      showNotification(paste("Die Kalibrierung konnte nicht ausgeführt werden. Fehlermeldung: ", e$message), type = "error")
+    })
+  })
   
   
   
+###---------------------------------------------------------------------------------------------------------------------------  
 #Funktionen für Energiedaten:
   
   # Funktion zum Abrufen der Energiedaten
-  get_energie_data <- function(start_date, end_date) {
-    energie_data <- data.frame() # Leerer Datenrahmen zum Speichern der abgerufenen Daten
-    selected_files <- get_files(start_date, end_date, energie_folder)
+  get_energy_data <- function(start_date, end_date) {
+    energy_data <- data.frame() # Leerer Datenrahmen zum Speichern der abgerufenen Daten
+    selected_files <- get_files(start_date, end_date, energy_folder)
     for (file_path in selected_files) {
       data <- read.csv(file_path, sep = ";", header = TRUE, stringsAsFactors = FALSE)
-      energie_data <- rbind(energie_data, data)
+      energy_data <- rbind(energy_data, data)
     }
-    return(energie_data)
+    return(energy_data)
   }
   
   # Funktion zum Rendern des Energie Plots
-  renderEnergiePlot <- function(data) {
+  render_energy_over_time_plot <- function(data) {
     p <- plot_ly(
       data,
       type = 'scatter',
@@ -267,50 +283,50 @@ server <- function(input, output, session) {
   
   
   # observeEvent-Funktion reagiert auf submit button
-  observeEvent(input$submit_energie, {
-    start_date <- input$daterange_energie[1]
-    end_date <- input$daterange_energie[2]
+  observeEvent(input$submit_energy, {
+    start_date <- input$daterange_energy[1]
+    end_date <- input$daterange_energy[2]
     
-    energie_data <- get_energie_data(start_date, end_date)
-    if (nrow(energie_data) > 0) {
-      energie_data$DateTime <- as.POSIXct(energie_data$DateTime, format = "%d.%m.%Y %H:%M")
+    energy_data <- get_energy_data(start_date, end_date)
+    if (nrow(energy_data) > 0) {
+      energy_data$DateTime <- as.POSIXct(energy_data$DateTime, format = "%d.%m.%Y %H:%M")
       # Plot für Energiedaten
-      output$energiePlot <- renderPlotly({
-        renderEnergiePlot(energie_data)
+      output$energy_over_time <- renderPlotly({
+        render_energy_over_time_plot(energy_data)
       })
-      shinyjs::enable("export_button_energie")
+      shinyjs::enable("export_button_energy")
     } else{
       # Keine Dateien gefunden
       shinyalert("Achtung!", "Es wurden keine Energiedaten im ausgewähltem Zeitraum gefunden!", type = "warning")
-      shinyjs::disable("export_button_energie")
+      shinyjs::disable("export_button_energy")
     }
   })
   
   
   # Observer für Änderungen des Startdatums
-  observeEvent(input$daterange_energie[1], {
-    start_date_energie <- input$daterange_energie[1]
-    end_date_energie <- input$daterange_energie[2]
+  observeEvent(input$daterange_energy[1], {
+    start_date_energy <- input$daterange_energy[1]
+    end_date_energy <- input$daterange_energy[2]
     
     # Überprüfen, ob das Startdatum größer als das Enddatum ist
-    if (start_date_energie > end_date_energie) {
+    if (start_date_energy > end_date_energy) {
       # Setzen des Enddatums auf das Startdatum
-      updateDateRangeInput(session, "daterange_energie", start = start_date_energie, end = start_date_energie)
+      updateDateRangeInput(session, "daterange_energy", start = start_date_energy, end = start_date_energy)
     }
   })
 
-  #Downloadfunktion Excel-Datei
-  output$export_button_energie <- downloadHandler(
+  #Download als Excel-Datei
+  output$export_button_energy <- downloadHandler(
     filename = function() {
-      start_date <- as.character(input$daterange_energie[1])
-      end_date <- as.character(input$daterange_energie[2])
+      start_date <- as.character(input$daterange_energy[1])
+      end_date <- as.character(input$daterange_energy[2])
       name <- sprintf("%s_%s_Energie_Report", start_date, end_date)
       paste(name, sep = '.', 'xlsx')
     },
     content = function(file) {
-      start_date <- input$daterange_energie[1]
-      end_date <- input$daterange_energie[2]
-      data <- get_energie_data(start_date, end_date)
+      start_date <- input$daterange_energy[1]
+      end_date <- input$daterange_energy[2]
+      data <- get_energy_data(start_date, end_date)
       write_xlsx(data, path = file)
     }
   )
