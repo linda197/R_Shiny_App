@@ -36,24 +36,31 @@ ui <- dashboardPage(
                                    start = Sys.Date() - 7, end = Sys.Date(),
                                    format = "dd.mm.yyyy",
                                    language = "de", separator = "bis"),
+                    
                     actionButton("submit_ultrasound", "Daten abrufen"),
+                    div(style = "height: 20px;"),  # Leere Zeile
+                    selectInput("export_format_ultrasound", "Download als:", 
+                                choices = c("Excel" = "excel", "CSV" = "csv"),
+                                selected = "excel"),
                     downloadButton("export_button_ultrasound", "Daten exportieren"),
-                    width = 12
+                    width = 12,
                   ),
                   box(
                     title = "Kalibrierung",
-                    status = "primary",  
+                    status = "primary",
+                    solidHeader = TRUE,
                     actionButton("run_calibration_button", "Kalibrierung ausführen"),
                     width = 12
                   ),
+                  
                   box(
+                    title = "Plots",
+                    status = "primary",
+                    solidHeader = TRUE,
                     plotlyOutput("level_over_time"),
-                    width = 12
-                  ),
-                  box(
                     plotlyOutput("volume_over_time"),
                     width = 12
-                  )
+                  ),
                 )
               )
       ),
@@ -70,10 +77,17 @@ ui <- dashboardPage(
                                    format = "dd.mm.yyyy",
                                    language = "de", separator = "bis"),
                     actionButton("submit_energy", "Daten abrufen"),
+                    div(style = "height: 20px;"),  # Leere Zeile
+                    selectInput("export_format_energy", "Download als:", 
+                                choices = c("Excel" = "excel", "CSV" = "csv"),
+                                selected = "excel"),
                     downloadButton("export_button_energy", "Daten exportieren"),
-                    width = 12
+                    width = 12,
                   ),
                   box(
+                    title = "Plot",
+                    status = "primary",  
+                    solidHeader = TRUE, 
                     plotlyOutput("energy_over_time"),
                     width = 12
                   )
@@ -111,8 +125,8 @@ server <- function(input, output, session) {
     return(selected_files)
   }
   
-###--------------------------------------------------------------------------------------------------------------------------- 
-#Funktionen für Ultraschalldaten
+  ###--------------------------------------------------------------------------------------------------------------------------- 
+  #Funktionen für Ultraschalldaten
   
   # Funktion zum Abrufen der Ultraschalldaten
   get_ultrasound_data <- function(start_date, end_date) {
@@ -182,14 +196,14 @@ server <- function(input, output, session) {
     # Falls Daten vorhanden sind:
     if (nrow(ultrasound_data) > 0) {
       # Plot für Ultraschalldaten
-       ultrasound_data$DateTime <- as.POSIXct(paste(ultrasound_data$Datum, ultrasound_data$Uhrzeit), format = "%Y-%m-%d %H:%M")
-       ultrasound_data <- ultrasound_data[, c("DateTime", "Abstand_Sensor_1", "Abstand_Sensor_2", "Wasserhoehe_1", "Wasserhoehe_2", "Wassermenge_1", "Wassermenge_2")]
-       output$level_over_time <- renderPlotly({
-         render_level_over_time_plot(ultrasound_data)
+      ultrasound_data$DateTime <- as.POSIXct(paste(ultrasound_data$Datum, ultrasound_data$Uhrzeit), format = "%Y-%m-%d %H:%M")
+      ultrasound_data <- ultrasound_data[, c("DateTime", "Abstand_Sensor_1", "Abstand_Sensor_2", "Wasserhoehe_1", "Wasserhoehe_2", "Wassermenge_1", "Wassermenge_2")]
+      output$level_over_time <- renderPlotly({
+        render_level_over_time_plot(ultrasound_data)
       })
-       output$volume_over_time <- renderPlotly({
-         render_volume_over_time_plot(ultrasound_data)
-       })
+      output$volume_over_time <- renderPlotly({
+        render_volume_over_time_plot(ultrasound_data)
+      })
       # Enable export button
       shinyjs::enable("export_button_ultrasound")
       
@@ -211,27 +225,45 @@ server <- function(input, output, session) {
       updateDateRangeInput(session, "daterange_ultrasound", start = start_date_ultrasound, end = start_date_ultrasound)
     }
   })
-
-  #Download als Excel-Datei
+  
+  #Download entweder als Excel oder CSV
   output$export_button_ultrasound <- downloadHandler(
     filename = function() {
       start_date <- as.character(input$daterange_ultrasound[1])
       end_date <- as.character(input$daterange_ultrasound[2])
       name <- sprintf("%s_%s_Ultraschall_Report", start_date, end_date)
-      paste(name, sep = '.', 'xlsx')
+      if (input$export_format_ultrasound == "excel") {
+        paste(name, sep = '.', 'xlsx')
+      } else {
+        paste(name, sep = '.', 'csv')
+      }
     },
     content = function(file) {
       start_date <- input$daterange_ultrasound[1]
       end_date <- input$daterange_ultrasound[2]
       data <- get_ultrasound_data(start_date, end_date)
+      if (input$export_format_ultrasound == "excel") {
         write_xlsx(data, path = file)
+      } else {
+        write.csv(data, file, row.names = FALSE)
+      }
     }
   )
+  
+  
   
   # Kalibrierung der Ultraschalldaten
   observeEvent(input$run_calibration_button, {
     tryCatch({
-      source("C:/Users/Lenovo/Documents/Git/us_calibrate.R")
+      # SSH Verbindung zum Benutzer "admin" auf dem Raspberry Pi (die IP Adresse) herstellen
+      con <- ssh_connect("admin@192.168.0.10")
+      
+      # R-Skript auf dem Raspberry Pi ausführen
+      ssh_exec_command(con, "Rscript /media/admin/6847-3231/us_calibrate.R")
+      
+      # SSH-Verbindung trennen
+      ssh_disconnect(con)
+      
       showNotification("Die Kalibration wurde erfolgreich ausgeführt", type = "message")
     }, error = function(e) {
       showNotification(paste("Die Kalibrierung konnte nicht ausgeführt werden. Fehlermeldung: ", e$message), type = "error")
@@ -240,8 +272,8 @@ server <- function(input, output, session) {
   
   
   
-###---------------------------------------------------------------------------------------------------------------------------  
-#Funktionen für Energiedaten:
+  ###---------------------------------------------------------------------------------------------------------------------------  
+  #Funktionen für Energiedaten:
   
   # Funktion zum Abrufen der Energiedaten
   get_energy_data <- function(start_date, end_date) {
@@ -271,7 +303,7 @@ server <- function(input, output, session) {
     }
     
     p <- p %>% layout(
-      title = "Energie",
+      title = "Energieverbrauch",
       font = list(size = 13),
       xaxis = list(),
       yaxis = list(title = "kWh"),
@@ -314,22 +346,33 @@ server <- function(input, output, session) {
       updateDateRangeInput(session, "daterange_energy", start = start_date_energy, end = start_date_energy)
     }
   })
-
-  #Download als Excel-Datei
+  
+  # Download entweder als Excel oder CSV
   output$export_button_energy <- downloadHandler(
     filename = function() {
       start_date <- as.character(input$daterange_energy[1])
       end_date <- as.character(input$daterange_energy[2])
       name <- sprintf("%s_%s_Energie_Report", start_date, end_date)
-      paste(name, sep = '.', 'xlsx')
+      if (input$export_format_energy == "excel") {
+        paste(name, sep = '.', 'xlsx')
+      } else {
+        paste(name, sep = '.', 'csv')
+      }
     },
     content = function(file) {
       start_date <- input$daterange_energy[1]
       end_date <- input$daterange_energy[2]
       data <- get_energy_data(start_date, end_date)
-      write_xlsx(data, path = file)
+      if (input$export_format_energy == "excel") {
+        write_xlsx(data, path = file)
+      } else {
+        write.csv(data, file, row.names = FALSE)
+      }
     }
   )
+  session$onSessionEnded(function() {
+    stopApp()
+  })
   
 }
 
