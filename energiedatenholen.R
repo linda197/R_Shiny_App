@@ -6,7 +6,7 @@ if (!require("httr")) {
 library(httr)
 
 # Definiere die URL der CSV-Datei
-url <- "http://example.com/data.csv"
+url <- "150.100.101.122"
 
 # Funktion zum Abrufen der CSV-Datei über das Netzwerk und Speichern
 retrieve_csv <- function(url, file_path) {
